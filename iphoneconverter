@@ -1,0 +1,53 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import subprocess
+import optparse
+import tempfile
+
+CONVERTED_EXTENSION = ".mp4"
+
+def init_temp_dir(base_dir):
+    dest_dir_name = os.path.join(base_dir, "converted/")
+    try:
+        os.mkdir(dest_dir_name)
+    except OSError:
+        pass
+    return dest_dir_name
+
+def convert_file(show_name, filename, dir_name):
+    args = ("nice", "HandBrakeCLI", "--preset='iPhone & iPod Touch'", "-i", filename, "-o", os.path.join(dir_name, os.path.basename(filename) + CONVERTED_EXTENSION))
+    proc = subprocess.Popen(args)
+    proc.communicate()
+
+def tag_files(show_name, dir_name):
+    cwd = os.getcwd()
+    os.chdir(dir_name)
+    proc = subprocess.Popen(("episoderenamer", "-ega", show_name))
+    proc.communicate()
+
+if __name__ == "__main__":
+    if len(sys.argv) != 3:
+        print "Usage: iphoneconverter.py <show name> <video directory>"
+        sys.exit(2)
+
+    if os.path.isdir(sys.argv[2]):
+        source_dir_name = sys.argv[2]
+        dest_dir_name = init_temp_dir(source_dir_name)
+        for filename in (x for x in os.listdir(source_dir_name) if os.path.isfile(os.path.join(source_dir_name, x))):
+            dest_filename = os.path.join(dest_dir_name, os.path.basename(filename) + CONVERTED_EXTENSION)
+            if os.path.isfile(dest_filename):
+                print "%s has already been converted, skipping." % filename
+                continue
+            print "Converting %s..." % filename
+            convert_file(sys.argv[1], os.path.join(source_dir_name, filename), dest_dir_name)
+        tag_files(sys.argv[1], dest_dir_name)
+    elif os.path.isfile(sys.argv[2]):
+        dest_dir_name = init_temp_dir(os.path.dirname(sys.argv[2]))
+        convert_file(sys.argv[1], sys.argv[2], dest_dir_name)
+        tag_files(sys.argv[1], dest_dir_name)
+    else:
+        print "File not found."
+        sys.exit(1)
+
